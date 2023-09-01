@@ -1,13 +1,15 @@
+using Photon.Pun;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerMoveController : MonoBehaviour
+public class PlayerMoveController : MonoBehaviourPun
 {
     public float moveSpeed = 5.0f; // 플레이어의 이동 속도
     public float rotationSpeed = 5.0f; // 플레이어의 회전 속도
     public float jumpForce = 10.0f; // 플레이어의 점프 파워
-    public Animator playerAnimator; 
+    public Animator playerAnimator;
+    //public PhotonView PV;
 
     private bool isMotioned = false; // 플레이어가 애니메이션 재생 중인지 확인하는 변수
     private bool isGround = true; // 플레이어가 땅에 있는지 확인하는 변수
@@ -27,6 +29,15 @@ public class PlayerMoveController : MonoBehaviour
 
     private void Update()
     {
+        // 마스터 클라이언트에게 위치 정보 보내기
+        SendPositionToMasterClient(transform.position);
+
+        // 로컬 플레이어가 아닐 경우 업데이트 종료
+        if (!photonView.IsMine)
+        {
+            return;
+        }
+
         // 마우스 이동 함수 호출
         MouseMove();
         // 상하 이동 함수 호출
@@ -40,14 +51,27 @@ public class PlayerMoveController : MonoBehaviour
             // 공격 함수 호출
             Attack();
         }
+    }
 
-        // 모션에 즉각 대응하기 위해 프레임 단위로 점프 모션 변경
-        playerAnimator.SetBool("Jump", isJumped);
-        // 모션에 즉각 대응하기 위해 프레임 단위로 공격 모션 변경
-        playerAnimator.SetBool("Attack", isAttacked);
+    // 마스터 클라이언트에게 위치 정보 보내는 RPC 함수
+    [PunRPC]
+    private void SendPositionToMasterClient(Vector3 position)
+    {
+        if (photonView.IsMine)
+        {
+            photonView.RPC("ReceivePositionFromClient", RpcTarget.All, position);
+        }
+    }
+
+    // 마스터 클라이언트가 위치 정보를 받는 RPC 함수
+    [PunRPC]
+    private void ReceivePositionFromClient(Vector3 position, PhotonMessageInfo info)
+    {
+
     }
 
     // 마우스 이동 함수
+
     private void MouseMove()
     {
         // 마우스 입력을 받아 플레이어의 X축 회전
@@ -64,6 +88,7 @@ public class PlayerMoveController : MonoBehaviour
     }
 
     // 상하 이동 함수
+
     private void Move()
     {
         if (isAttacked == false)
@@ -71,7 +96,8 @@ public class PlayerMoveController : MonoBehaviour
             // 상하 이동
             float verticalInput = Input.GetAxis("Vertical"); // 상하 입력 (-1 ~ 1)
             // 이동 애니메이션 블랜드 값 넣기
-            playerAnimator.SetFloat("Speed", verticalInput);
+            //playerAnimator.SetFloat("Speed", verticalInput);
+            photonView.RPC("DOAnimationSyncForFloat", RpcTarget.All, "Speed", verticalInput);
 
             // 플레이어의 입력을 통해 이동 방향 결정(상/하)
             Vector3 moveDirection = new Vector3(0.0f, 0.0f, verticalInput);
@@ -84,6 +110,7 @@ public class PlayerMoveController : MonoBehaviour
     }
 
     // 점프 함수
+
     private void Jump()
     {
         // 땅에 있고 스페이스 바를 누를 경우
@@ -96,6 +123,9 @@ public class PlayerMoveController : MonoBehaviour
             // 점프 모션 재생 여부를 구분하는 bool 값 변경
             isJumped = true;
 
+            // 점프 모션 상태 true로 변경
+            photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Jump", isJumped);
+
             // 중력에 대항하는 힘을 가하여 점프
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
 
@@ -103,20 +133,24 @@ public class PlayerMoveController : MonoBehaviour
             StartCoroutine(JumpDelay());
         }
     }
-    
+
     // 점프 애니메이션 캔슬 코루틴 함수
+ 
     private IEnumerator JumpDelay()
     {
         // 점프 타임만큼 대기
         yield return new WaitForSeconds(jumpTime);
         // 점프 모션 재생 여부를 구분하는 bool 값 초기화
         isJumped = false;
+        // 점프 모션 상태 false로 변경
+        photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Jump", isJumped);
     }
 
     // 공격 함수
+
     private void Attack()
     {
-        // 공격 중이 아니고 왼쪽 클릭시
+        // 공격 중이 아닌 상태에서 왼쪽 클릭시
         if (isAttacked == false && Input.GetMouseButtonDown(0))
         {
             // 모션 재생 여부를 구분하는 bool 값 변경
@@ -126,15 +160,19 @@ public class PlayerMoveController : MonoBehaviour
 
             // 공격 딜레이 코루틴 함수 호출
             StartCoroutine(AttackForDelay());
+
+            // 공격 모션 상태 true로 변경
+            photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Attack", isAttacked);
         }
     }
 
     // 공격 딜레이 코루틴 함수
+
     private IEnumerator AttackForDelay()
     {
         // attackTime / 2만큼 대기
         yield return new WaitForSeconds(attackTime * 0.5f);
-        // 오버랩을 사용하여 현재 오브젝트 주변에 있는 모든 콜라이더 검출
+        // 오버랩을 사용하여 현재 오브젝트 주변에 있는 모든 콜라이더를 검출하고 첫번째 콜라이더를 공격함
         colliderDetection.GetColliders(1.0f); // 기본범위 1.5f
 
         // attackTime / 2만큼 대기
@@ -143,9 +181,13 @@ public class PlayerMoveController : MonoBehaviour
         isAttacked = false;
         // 모션 재생 여부를 구분하는 bool 값 초기화
         isMotioned = false;
+
+        // 공격 모션 상태 false로 변경
+        photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Attack", isAttacked);
     }
 
     // 땅과 충돌 했는지 체크하는 함수
+
     private void OnCollisionEnter(Collision collision)
     {
         // 땅 혹은 오브젝트에 착지할 경우

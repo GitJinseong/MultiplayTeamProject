@@ -22,7 +22,6 @@ public class PlayerState : MonoBehaviour
         deadSound = GetComponent<AudioSource>();
     }
 
-    // Update is called once per frame
     void Update()
     {
         // 플레이어 사망여부 함수 호출
@@ -45,6 +44,7 @@ public class PlayerState : MonoBehaviour
     // UI 플레이어 상태 정보 갱신 함수
     private void RefreshPlayerStateForUI()
     {
+        // 체력 텍스트 갱신
         txt_Hp.text = "HP : " + hp.ToString();
     }
 
@@ -92,6 +92,7 @@ public class PlayerState : MonoBehaviour
         Respawn();
         // 플레이어 오브젝트 애니메이션 초기화
         player.SetActive(false);
+        // SetActive True / False 사이에 텀을 두지 않으면 오류가 발생함
         yield return new WaitForSeconds(0.05f);
         player.SetActive(true);
         // 플레이어 이동 가능여부 전환 함수 호출

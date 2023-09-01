@@ -1,74 +1,93 @@
-using System.Collections;
-using System.Collections.Generic;
+using Photon.Pun; // 유니티용 포톤 컴포넌트들
+using Photon.Realtime; // 포톤 서비스 관련 라이브러리
 using UnityEngine;
 using TMPro;
-using Photon.Pun; //선언
-using Photon.Realtime; //선언
-using UnityEngine.UI; //선언
+using UnityEngine.UI;
 
-public class PhotonManager_1 : MonoBehaviourPunCallbacks // 클래스 상속
+// 마스터(매치 메이킹) 서버와 룸 접속을 담당
+public class PhotonManager_1 : MonoBehaviourPunCallbacks
 {
-    public TMP_Text StatusText;
-    public TMP_InputField nickNameInput;
-    public TMP_InputField roomNameInput;
-    public GameObject uiPanel;
-    public byte userNum = 5;
+    private string gameVersion = "1.0.0"; // 게임 버전
 
-    private bool connect = false;
+    public TMP_Text connectionInfoText; // 네트워크 정보를 표시할 텍스트
+    public Button joinButton; // 룸 접속 버튼
 
-    private void Update()
+    // 게임 실행과 동시에 마스터 서버 접속 시도
+    private void Start()
     {
-        // 현재 상태 표시
-        StatusText.text = "Server State : " + PhotonNetwork.NetworkClientState.ToString();
+        // 접속에 필요한 정보(게임 버전) 설정
+        PhotonNetwork.GameVersion = gameVersion;
+        // 설정한 정보로 마스터 서버 접속 시도
+        PhotonNetwork.ConnectUsingSettings();
+
+        // 룸 접속 버튼 잠시 비활성화
+        joinButton.interactable = false;
+        // 접속 시도 중임을 텍스트로 표시
+        connectionInfoText.text = "Connect To Master Server...";
     }
 
-    // 서버에 접속하는 함수
-    public void Connect()
+    // 마스터 서버 접속 성공시 자동 실행
+    public override void OnConnectedToMaster()
     {
+        // 룸 접속 버튼 활성화
+        joinButton.interactable = true;
+        // 룸 접속 정보 표시
+        connectionInfoText.text = "Online : Connected To Master Server Succeed";
+    }
+
+    // 마스터 서버 접속 실패시 자동 실행
+    public override void OnDisconnected(DisconnectCause cause)
+    {
+        // 룸 접속 버튼 비활성화
+        joinButton.interactable = false;
+        // 접속 정보 표시
+        connectionInfoText.text = string.Format("{0}\n{1}",
+            "Offline: Disconnected To Master Server", "Retry Connect Now...");
+
+        // 마스터 서버로의 재접속 시도
         PhotonNetwork.ConnectUsingSettings();
     }
 
-    public override void OnConnectedToMaster()
+    // 룸 접속 시도
+    public void Connect()
     {
-        Debug.Log("서버 접속 완료");
-        string nickName = PhotonNetwork.LocalPlayer.NickName;
-        nickName = nickNameInput.text;
-        Debug.Log("당신의 이름은 " + nickName + " 입니다.");
-        connect = true;
-    }
+        // 중복 접속 시도를 막기 위해 접속 버튼 잠시 비활성화
+        joinButton.interactable = false;
 
-    // 연결을 끊는 함수
-    public void Disconnect()
-    {
-        PhotonNetwork.Disconnect();
-    }
-
-    // 연결이 끊겼을 때 호출하는 함수
-    public override void OnDisconnected(DisconnectCause cause)
-    {
-        Debug.Log("연결 끊김");
-    }
-
-    // 방에 입장하는 함수
-    public void JoinRoom()
-    {
-        if (connect)
+        // 마스터 서버에 접속 중이라면
+        if (PhotonNetwork.IsConnected == true)
         {
+            // 룸 접속 실행
+            connectionInfoText.text = "Conncect To Room...";
             PhotonNetwork.JoinRandomRoom();
-            uiPanel.SetActive(false);
-            Debug.Log(roomNameInput.text + "방에 입장하셨습니다.");
         }
-    }
+        else
+        {
+            // 마스터 서버에 접속 중이 아니라면 마스터 서버에 접속 시도
+            connectionInfoText.text = string.Format("{0}\n{1}",
+                "Offline: Disconnected To Master Server", "Retry Connect Now...");
 
-    // 랜덤한 방 입장에 실패하면 새로운 방 생성 (master 방 생성)
+            // 마스터 서버로의 재접속 시도
+            PhotonNetwork.ConnectUsingSettings();
+        }
+    }       // Connect()
+
+    // (빈 방이 없어)랜덤 룸 참가에 실패한 경우 자동 실행
     public override void OnJoinRandomFailed(short returnCode, string message)
     {
-        PhotonNetwork.CreateRoom(roomNameInput.text, new RoomOptions { MaxPlayers = userNum });
-    }
+        // 접속 상태 표시
+        connectionInfoText.text = "Nothing To Empty Room, Create New Room...";
+        // 최대 4명을 수용 가능한 빈 방 생성
+        PhotonNetwork.CreateRoom(null, new RoomOptions { MaxPlayers = 4 });
+    }       // OnJoinRandomFailed()
 
-    // 방에 입장 했을 때 호출
+    // 룸에 참가 완료된 경우 자동 실행
     public override void OnJoinedRoom()
     {
-        PhotonNetwork.Instantiate("Player", Vector3.zero, Quaternion.identity);
-    }
+        // 접속 상태 표시
+        connectionInfoText.text = "Successes Joined Room";
+        // 모든 룸 참가자가 Main 씬을 로드하게 함.
+        PhotonNetwork.LoadLevel("PlayScene");
+    }       // OnJoinedRoom()
 }
+
