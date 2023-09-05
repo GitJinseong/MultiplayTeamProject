@@ -1,37 +1,41 @@
+using Photon.Pun;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
-public class PlayerStateManager : MonoBehaviour
+public class PlayerStateManager : MonoBehaviourPun
 {
-    #region 싱글톤 선언
-    private static PlayerStateManager m_instance;
-    public static PlayerStateManager Instance
-    {
-        get 
-        {
-            // 만약 싱글톤 변수에 아직 오브젝트가 할당되지 않았다면
-            if (m_instance == null)
-            {
-                // 씬에서 PlayerStateManager 오브젝트를 찾아 할당
-                m_instance = FindObjectOfType<PlayerStateManager>();
-            }
-
-            // 싱글톤 오브젝트를 반환
-            return m_instance;
-        }
-    }
-    #endregion
-
+    private PhotonView temp_targetPhotonView;
+    private PhotonView temp_myPhotonView;
     private PlayerState temp_targetState;
     private PlayerState temp_myState;
 
-    // 타겟 오브젝트에게 데미지를 주는 함수
-    public void AddDamage(GameObject target, GameObject me)
+    //데미지 처리를 모든 클라이언트에게 전송하는 함수
+    [PunRPC]
+    public void ReceiveAddDamage(int[] targetIds)
     {
-        // 임시변수들에 PlayerState를 할당
-        temp_targetState = target.GetComponent<PlayerState>();
-        temp_myState = me.GetComponent<PlayerState>();
+        Debug.Log($"타겟 id : {targetIds[0]}");
+        Debug.Log($"나의 id : {targetIds[1]}");
+        photonView.RPC("AddDamage", RpcTarget.All, targetIds);
+    }
+
+    [PunRPC]
+    // 타겟 오브젝트에게 데미지를 주는 함수
+    public void AddDamage(int[] targetIds)
+    {
+        // 임시변수에 PhotonView 할당
+        temp_targetPhotonView = PhotonView.Find(targetIds[0]);
+        temp_myPhotonView = PhotonView.Find(targetIds[1]);
+
+        //// 임시변수들에 PlayerState를 할당
+        temp_targetState = temp_targetPhotonView.gameObject.GetComponent<PlayerState>();
+        temp_myState = temp_myPhotonView.gameObject.GetComponent<PlayerState>();
+
+        Debug.Log($"타겟 id : {targetIds[0]}");
+        Debug.Log($"나의 id : {targetIds[1]}");
+
 
         if (temp_targetState != null)
         {

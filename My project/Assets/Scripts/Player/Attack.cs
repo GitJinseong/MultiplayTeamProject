@@ -11,9 +11,18 @@ public class Attack : MonoBehaviourPun
     private Vector3 temp_PushDirection;
 
     [PunRPC]
-    // 대상(타겟)에게 공격하는 함수
-    public void DOAttack(GameObject target)
+    public void ReceiveAttack(int id)
     {
+        photonView.RPC("DOAttack", RpcTarget.All, id);
+    }
+
+    [PunRPC]
+    // 대상(타겟)에게 공격하는 함수
+    public void DOAttack(int id)
+    {
+        PhotonView targetPhotonView = PhotonView.Find(id);
+        GameObject target = targetPhotonView.gameObject;
+
         // 타겟의 리지드 바디를 가져옴
         temp_TargetRb = target.GetComponent<Rigidbody>();
 
@@ -24,6 +33,6 @@ public class Attack : MonoBehaviourPun
         temp_TargetRb.AddForce(temp_PushDirection.normalized * pushForce, ForceMode.Impulse);
 
         // 타겟에게 데미지 처리
-        PlayerStateManager.Instance.AddDamage(target, gameObject);
+        //PlayerStateManager.Instance.AddDamage(target, gameObject);
     }
 }

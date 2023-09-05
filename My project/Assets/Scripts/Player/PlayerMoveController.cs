@@ -1,6 +1,7 @@
 using Photon.Pun;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class PlayerMoveController : MonoBehaviourPun
@@ -96,8 +97,7 @@ public class PlayerMoveController : MonoBehaviourPun
             // 상하 이동
             float verticalInput = Input.GetAxis("Vertical"); // 상하 입력 (-1 ~ 1)
             // 이동 애니메이션 블랜드 값 넣기
-            //playerAnimator.SetFloat("Speed", verticalInput);
-            photonView.RPC("DOAnimationSyncForFloat", RpcTarget.All, "Speed", verticalInput);
+            SendAnimationStatus("float", "Speed", false, verticalInput);
 
             // 플레이어의 입력을 통해 이동 방향 결정(상/하)
             Vector3 moveDirection = new Vector3(0.0f, 0.0f, verticalInput);
@@ -124,7 +124,7 @@ public class PlayerMoveController : MonoBehaviourPun
             isJumped = true;
 
             // 점프 모션 상태 true로 변경
-            photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Jump", isJumped);
+            SendAnimationStatus("bool", "Jump", isJumped, 0f);
 
             // 중력에 대항하는 힘을 가하여 점프
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
@@ -135,7 +135,7 @@ public class PlayerMoveController : MonoBehaviourPun
     }
 
     // 점프 애니메이션 캔슬 코루틴 함수
- 
+
     private IEnumerator JumpDelay()
     {
         // 점프 타임만큼 대기
@@ -143,7 +143,7 @@ public class PlayerMoveController : MonoBehaviourPun
         // 점프 모션 재생 여부를 구분하는 bool 값 초기화
         isJumped = false;
         // 점프 모션 상태 false로 변경
-        photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Jump", isJumped);
+        SendAnimationStatus("bool", "Jump", isJumped, 0f);
     }
 
     // 공격 함수
@@ -162,7 +162,7 @@ public class PlayerMoveController : MonoBehaviourPun
             StartCoroutine(AttackForDelay());
 
             // 공격 모션 상태 true로 변경
-            photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Attack", isAttacked);
+            SendAnimationStatus("bool", "Attack", isAttacked, 0f);
         }
     }
 
@@ -183,7 +183,7 @@ public class PlayerMoveController : MonoBehaviourPun
         isMotioned = false;
 
         // 공격 모션 상태 false로 변경
-        photonView.RPC("DOAnimationSyncForBool", RpcTarget.All, "Attack", isAttacked);
+        SendAnimationStatus("bool", "Attack", isAttacked, 0f);
     }
 
     // 땅과 충돌 했는지 체크하는 함수
@@ -198,5 +198,12 @@ public class PlayerMoveController : MonoBehaviourPun
             // 모션 재생 여부를 구분하는 bool 값 초기화
             isMotioned = false;
         }
+    }
+
+    // 애니메이션 상태를 마스터 클라이언트에게 전송하는 함수
+    private void SendAnimationStatus(string type, string name, bool isAnimating, float value)
+    {
+        // 애니메이션 동작 여부를 마스터 클라이언트에게 보냄
+        photonView.RPC("ReceiveAnimationStatus", RpcTarget.MasterClient, type, name, isAnimating, value);
     }
 }

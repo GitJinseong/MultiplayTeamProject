@@ -45,5 +45,25 @@ public class AnimationSync : MonoBehaviourPunCallbacks, IPunObservable
         }
     }
 
+    [PunRPC]
+    private void ReceiveAnimationStatus(string type, string name, bool isAnimating, float value)
+    {
+        photonView.RPC("BroadcastAniamtionStatus", RpcTarget.All, type, name, isAnimating, value);
+    }
+
+    [PunRPC]
+    private void BroadcastAniamtionStatus(string type, string name, bool isAnimating, float value)
+    {
+        switch (type)
+        {
+            case "bool":
+                animator.SetBool(name, isAnimating);
+                break;
+
+            case "float":
+                animator.SetFloat(name, value);
+                break;
+        }
+    }
 
 }
